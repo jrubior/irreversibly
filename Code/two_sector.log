@@ -1,0 +1,130 @@
+Starting Dynare (version 6.5).
+Calling Dynare with arguments: none
+Starting preprocessing of the model file ... 
+Found 35 equation(s). 
+Evaluating expressions... 
+Computing static model derivatives (order 1). 
+Normalizing the static model... 
+Finding the optimal block decomposition of the static model... 
+7 block(s) found: 
+  6 recursive block(s) and 1 simultaneous block(s). 
+  the largest simultaneous block has 29 equation(s) 
+                                 and 29 feedback variable(s). 
+Computing dynamic model derivatives (order 1). 
+Normalizing the dynamic model... 
+Finding the optimal block decomposition of the dynamic model... 
+4 block(s) found: 
+  3 recursive block(s) and 1 simultaneous block(s). 
+  the largest simultaneous block has 29 equation(s) 
+                                 and 29 feedback variable(s). 
+Preprocessing completed. 
+Preprocessing time: 0h00m00s.
+
+STEADY-STATE RESULTS:
+
+C   		 2.47546
+c1  		 1.78232
+c2  		 1.78232
+y1  		 2.74339
+y2  		 2.74339
+v1  		 2.05024
+v2  		 2.05024
+m1  		 2.05024
+m2  		 2.05024
+m11 		 1.3571
+m12 		 1.3571
+m21 		 1.3571
+m22 		 1.3571
+k1  		 4.29111
+k2  		 4.29111
+x1  		 0.602227
+x2  		 0.602227
+x11 		 -0.0909201
+x12 		 -0.0909201
+x21 		 -0.0909201
+x22 		 -0.0909201
+A1  		 0.26832
+A2  		 0.26832
+py1 		 0
+py2 		 0
+pv1 		 0
+pv2 		 0
+pm1 		 0
+pm2 		 0
+px1 		 0
+px2 		 0
+z1  		 0
+z2  		 0
+l1  		 0
+l2  		 0
+
+EIGENVALUES:
+         Modulus             Real        Imaginary
+       2.099e-13        2.099e-13                0
+       3.506e-13       -3.506e-13                0
+             0.9              0.9                0
+             0.9              0.9                0
+             0.9              0.9                0
+             0.9              0.9                0
+       2.779e+12       -2.779e+12                0
+        4.33e+12         4.33e+12                0
+       1.456e+16        1.456e+16                0
+       1.764e+16        1.764e+16                0
+       2.308e+17        2.308e+17                0
+       4.819e+17        4.819e+17                0
+
+There are 6 eigenvalue(s) larger than 1 in modulus for 6 forward-looking variable(s)
+The rank condition is verified.
+
+
+MODEL SUMMARY
+
+  Number of variables:         35
+  Number of stochastic shocks: 4
+  Number of state variables:   6
+  Number of jumpers:           6
+  Number of static variables:  23
+
+
+MATRIX OF COVARIANCE OF EXOGENOUS SHOCKS
+Variables      eps_z1    eps_z2    eps_l1    eps_l2
+eps_z1       0.000100  0.000000  0.000000  0.000000
+eps_z2       0.000000  0.000100  0.000000  0.000000
+eps_l1       0.000000  0.000000  0.000100  0.000000
+eps_l2       0.000000  0.000000  0.000000  0.000100
+
+POLICY AND TRANSITION FUNCTIONS
+                                  k1
+Constant                    4.291107
+z1(-1)                      0.604478
+z2(-1)                      0.604478
+l1(-1)                      0.405000
+l2(-1)                      0.405000
+eps_z1                      0.671642
+eps_z2                      0.671642
+eps_l1                      0.450000
+eps_l2                      0.450000
+
+
+THEORETICAL MOMENTS
+VARIABLE         MEAN  STD. DEV.   VARIANCE
+k1             4.2911     0.0262     0.0007
+
+
+
+VARIANCE DECOMPOSITION (in percent)
+      eps_z1  eps_z2  eps_l1  eps_l2
+k1     34.51   34.51   15.49   15.49
+
+
+
+MATRIX OF CORRELATIONS
+Variables        k1
+k1           1.0000
+
+
+
+COEFFICIENTS OF AUTOCORRELATION
+Order          1       2       3       4       5
+k1        0.9000  0.8100  0.7290  0.6561  0.5905
+Total computing time : 0h00m02s

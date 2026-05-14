@@ -1,0 +1,43 @@
+function [residual, T_order, T] = dynamic_resid(y, x, params, steady_state, T_order, T)
+if nargin < 6
+    T_order = -1;
+    T = NaN(18, 1);
+end
+[T_order, T] = two_sector_alt.sparse.dynamic_resid_tt(y, x, params, steady_state, T_order, T);
+residual = NaN(35, 1);
+    residual(1) = (y(36)) - (T(1)*T(2));
+    residual(2) = (y(38)) - (T(3)*T(4));
+    residual(3) = (y(39)) - (y(43)*T(17));
+    residual(4) = (y(41)) - (y(42)+(1-params(5))*y(6));
+    residual(5) = (y(43)) - (y(48)*T(5));
+    residual(6) = (y(44)) - (y(36)*params(2)/y(37));
+    residual(7) = (y(45)) - (y(38)*params(3)*y(44)/y(39));
+    residual(8) = (y(46)) - (y(38)*(1-params(3))*y(44)/y(40));
+    residual(9) = (y(47)) - (params(1)*((1-params(5))*y(82)+params(4)*y(80)*y(74)/y(41)));
+    residual(10) = (log(y(48))) - (params(6)*log(y(13))+x(1));
+    residual(11) = (log(y(49))) - (params(7)*log(y(14))+x(2));
+    residual(12) = (y(51)) - (T(6)*T(7));
+    residual(13) = (y(52)) - (y(56)*T(18));
+    residual(14) = (y(54)) - (y(55)+(1-params(11))*y(19));
+    residual(15) = (y(56)) - (y(61)*T(8));
+    residual(16) = (y(57)) - (y(36)*params(8)/y(50));
+    residual(17) = (y(58)) - (y(51)*params(9)*y(57)/y(52));
+    residual(18) = (y(59)) - (y(51)*(1-params(9))*y(57)/y(53));
+    residual(19) = (y(60)) - (params(1)*((1-params(11))*y(95)+params(10)*y(93)*y(87)/y(54)));
+    residual(20) = (log(y(61))) - (params(12)*log(y(26))+x(3));
+    residual(21) = (log(y(62))) - (params(13)*log(y(27))+x(4));
+    residual(22) = (y(40)) - (T(9)*T(10));
+    residual(23) = (y(42)) - (T(11)*T(12));
+    residual(24) = (y(53)) - (T(13)*T(14));
+    residual(25) = (y(55)) - (T(15)*T(16));
+    residual(26) = (y(66)+y(65)+y(64)+y(37)+y(63)) - (y(38));
+    residual(27) = (y(44)*y(63)) - (y(40)*y(46)*params(14));
+    residual(28) = (y(44)*y(64)) - (y(42)*y(47)*params(15));
+    residual(29) = (y(44)*y(65)) - (y(53)*y(59)*params(16));
+    residual(30) = (y(44)*y(66)) - (y(55)*y(60)*params(17));
+    residual(31) = (y(70)+y(69)+y(68)+y(50)+y(67)) - (y(51));
+    residual(32) = (y(57)*y(67)) - (y(40)*y(46)*params(18));
+    residual(33) = (y(57)*y(68)) - (y(42)*y(47)*params(19));
+    residual(34) = (y(57)*y(69)) - (y(53)*y(59)*params(20));
+    residual(35) = (y(57)*y(70)) - (y(55)*y(60)*params(21));
+end

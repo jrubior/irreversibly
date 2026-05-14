@@ -96,7 +96,7 @@ class TwoSector:
                  σ_z1=0.01,
                  nk1=20,
                  nk2=20,
-                 k_width=0.05,
+                 k_width=0.10,
                  z1_grid=np.zeros(7),
                  P_z1=np.zeros((7, 7))):
 
@@ -200,6 +200,32 @@ def reward(i1, i2, iz, j1, j2, mod):
 
 
 # ------------------------------------------------------------
+# Precompute reward table: R[i1, i2, iz, j1, j2]
+# ------------------------------------------------------------
+
+@jit(nopython=True, parallel=True)
+def compute_reward_table(mod):
+    '''
+    Build the full reward table once before Q-learning starts.
+    Subsequent training steps do O(1) lookups instead of recomputing
+    exp, pow, and feasibility checks each time.
+    Shape mirrors the Q-table: (nk1, nk2, nz, nk1, nk2).
+    Memory note: same size as Q (~800 MB for nk1=nk2=100, nz=1).
+    '''
+    nk1 = len(mod.k1_grid)
+    nk2 = len(mod.k2_grid)
+    nz  = len(mod.z1_grid)
+    R = np.full((nk1, nk2, nz, nk1, nk2), -np.inf)
+    for i1 in prange(nk1):
+        for i2 in range(nk2):
+            for iz in range(nz):
+                for j1 in range(nk1):
+                    for j2 in range(nk2):
+                        R[i1, i2, iz, j1, j2] = reward(i1, i2, iz, j1, j2, mod)
+    return R
+
+
+# ------------------------------------------------------------
 # Sample next shock index from transition row (used instead of P_z1 weighted sum)
 # ------------------------------------------------------------
 
@@ -212,12 +238,9 @@ def sample_next_z(iz, mod):
     it only observes the realised next state.
     '''
     u   = np.random.rand()
-    cdf = 0.0
-    for jz in range(len(mod.z1_grid)):
-        cdf += mod.P_z1[iz, jz]
-        if u < cdf:
-            return jz
-    return len(mod.z1_grid) - 1   # numerical safety
+    cdf = np.cumsum(mod.P_z1[iz])
+    jz  = np.searchsorted(cdf, u)
+    return min(jz, len(mod.z1_grid) - 1)   # clamp for floating-point safety
 
 
 # ------------------------------------------------------------
@@ -225,7 +248,7 @@ def sample_next_z(iz, mod):
 # ------------------------------------------------------------
 
 @jit(nopython=True)
-def update_step(Q, mod, ε=0.1, lr=0.1):
+def update_step(Q, R, mod, ε=0.1, lr=0.1):
     '''
     Run one episode of Q-learning: randomly pick a starting state,
     then take steps until the within-episode Q-table change is below
@@ -240,13 +263,15 @@ def update_step(Q, mod, ε=0.1, lr=0.1):
     ----------
     Q   : current Q-table, shape (nk1, nk2, nz, nk1, nk2)
               Q[i1, i2, iz, j1, j2] = value of choosing (j1,j2) in state (i1,i2,iz)
+    R   : precomputed reward table, same shape as Q
     mod : TwoSector instance
     ε   : exploration probability (epsilon-greedy)
     lr  : learning rate α_t (held fixed per episode; caller may decay across episodes)
 
     Returns
     -------
-    Q   : updated Q-table (in-place modification + return for clarity)
+    Q      : updated Q-table (in-place modification + return for clarity)
+    max_td : max |TD error| seen this episode (used as convergence signal)
     '''
     nk1 = len(mod.k1_grid)
     nk2 = len(mod.k2_grid)
@@ -254,6 +279,7 @@ def update_step(Q, mod, ε=0.1, lr=0.1):
 
     # Suggestion 3: Increased steps from 20,000 to 30,000
     max_steps = 30000
+    max_td    = 0.0
 
     i1 = np.random.randint(0, nk1)
     i2 = np.random.randint(0, nk2)
@@ -273,14 +299,14 @@ def update_step(Q, mod, ε=0.1, lr=0.1):
                         best_val = Q[i1, i2, iz, a1, a2]
                         j1 = a1; j2 = a2
 
-        r = reward(i1, i2, iz, j1, j2, mod)
+        r = R[i1, i2, iz, j1, j2]
 
         if r == -np.inf:
             j1 = np.random.randint(0, nk1)
             j2 = np.random.randint(0, nk2)
-            r  = reward(i1, i2, iz, j1, j2, mod)
+            r  = R[i1, i2, iz, j1, j2]
             if r == -np.inf:
-                continue 
+                continue
 
         iz_next = sample_next_z(iz, mod)
 
@@ -294,9 +320,13 @@ def update_step(Q, mod, ε=0.1, lr=0.1):
         TD = r + mod.β * max_q_next - Q[i1, i2, iz, j1, j2]
         Q[i1, i2, iz, j1, j2] += lr * TD
 
+        abs_td = TD if TD >= 0.0 else -TD
+        if abs_td > max_td:
+            max_td = abs_td
+
         i1, i2, iz = j1, j2, iz_next
 
-    return Q
+    return Q, max_td
 
 
 
@@ -318,8 +348,11 @@ def qlearning(mod,
               print_step=1000):
     '''
     Run N episodes of Q-learning, decaying the learning rate across
-    episodes, and stop early if the sup-norm change in the Q-table
+    episodes, and stop early if the max |TD error| within an episode
     falls below tol.
+
+    Convergence criterion: max |TD| across steps in the episode, which
+    measures Bellman residuals directly and avoids copying the Q-table.
 
     This is the Q-learning analogue of vfi() in vfi.py.
 
@@ -331,7 +364,7 @@ def qlearning(mod,
     lr_0       : initial learning rate
     lr_min     : floor for the decayed learning rate
     lr_decay   : exponential decay constant: lr_t = max(lr_0*exp(-decay*t), lr_min)
-    tol        : convergence tolerance on sup-norm of Q-table change
+    tol        : convergence tolerance on max |TD error| within an episode
     print_step : print progress every this many episodes
 
     Returns
@@ -340,21 +373,22 @@ def qlearning(mod,
     pol_k1 : greedy policy for k1_next (index), shape (nk1, nk2, nz)
     pol_k2 : greedy policy for k2_next (index), shape (nk1, nk2, nz)
     '''
-    
+
     if eps is not None:
         eps_0 = eps
     nk1, nk2, nz = len(mod.k1_grid), len(mod.k2_grid), len(mod.z1_grid)
     Q = np.zeros((nk1, nk2, nz, nk1, nk2))
 
+    print('Precomputing reward table ...')
+    R = compute_reward_table(mod)
+    print('Done.\n')
+
     for episode in range(1, N + 1):
         # Suggestion 2: Decaying learning rate and epsilon
-        lr = max(lr_0 * np.exp(-lr_decay * episode), lr_min)
+        lr  = max(lr_0  * np.exp(-lr_decay  * episode), lr_min)
         eps = max(eps_0 * np.exp(-eps_decay * episode), eps_min)
 
-        Q_old = Q.copy()
-        Q = update_step(Q, mod, ε=eps, lr=lr)
-
-        error = np.max(np.abs(Q - Q_old))
+        Q, error = update_step(Q, R, mod, ε=eps, lr=lr)
 
         if episode % print_step == 0:
             print(f'Ep {episode:6d} | lr: {lr:.4f} | eps: {eps:.4f} | Error: {error:.2e}')
@@ -367,19 +401,10 @@ def qlearning(mod,
     else:
         print('Warning: reached maximum episodes without convergence')
 
-    # ... (Rest of policy extraction remains the same)
-    pol_k1 = np.zeros((nk1, nk2, nz), dtype=np.int64)
-    pol_k2 = np.zeros((nk1, nk2, nz), dtype=np.int64)
-    for i1 in range(nk1):
-        for i2 in range(nk2):
-            for iz in range(nz):
-                best_val = -np.inf
-                for j1 in range(nk1):
-                    for j2 in range(nk2):
-                        if Q[i1, i2, iz, j1, j2] > best_val:
-                            best_val = Q[i1, i2, iz, j1, j2]
-                            pol_k1[i1, i2, iz] = j1
-                            pol_k2[i1, i2, iz] = j2
+    flat   = Q.reshape(nk1, nk2, nz, nk1 * nk2)
+    best   = flat.argmax(axis=3)
+    pol_k1 = (best // nk2).astype(np.int64)
+    pol_k2 = (best  % nk2).astype(np.int64)
 
     return Q, pol_k1, pol_k2
 
@@ -399,17 +424,17 @@ def vf_from_Q(Q):
 if __name__ == '__main__':
 
     # --- Tauchen discretisation (identical to vfi.py)
-    # ρ_z1, σ_z1, nz = 0.90, 0.01, 7
-    # mc      = qe.markov.approximation.tauchen(nz, ρ_z1, σ_z1)
-    # z1_grid = mc.state_values.astype(np.float64)
-    # P_z1    = np.asarray(mc.P, dtype=np.float64)
+    ρ_z1, σ_z1, nz = 0.90, 0.01, 2
+    mc      = qe.markov.approximation.tauchen(nz, ρ_z1, σ_z1)
+    z1_grid = mc.state_values.astype(np.float64)
+    P_z1    = np.asarray(mc.P, dtype=np.float64)
 
-    # --- Single z=0 (SS), single k2 (SS), large k1 grid to test convergence
-    z1_grid = np.array([0.0])
-    P_z1    = np.array([[1.0]])
+    # # --- Single z=0 (SS), single k2 (SS), large k1 grid to test convergence
+    # z1_grid = np.array([0.0])
+    # P_z1    = np.array([[1.0]])
 
     # --- Instantiate model (same parameters as vfi.py)
-    mod = TwoSector(nk1=100, nk2=10, z1_grid=z1_grid, P_z1=P_z1)
+    mod = TwoSector(nk1=30, nk2=30, z1_grid=z1_grid, P_z1=P_z1)
 
     print('Grid sizes:')
     print(f'  k1: {len(mod.k1_grid)} points in '

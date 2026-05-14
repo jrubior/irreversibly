@@ -106,9 +106,9 @@ class TwoSector:
                  ω12=0.5,  ω22=0.5,
                  ρ_z1=0.90,
                  σ_z1=0.01,
-                 nk1=20,
-                 nk2=20,
-                 k_width=0.05,     # grid half-width around SS as a fraction
+                 nk1=30,
+                 nk2=30,
+                 k_width=0.10,     # grid half-width around SS as a fraction
                  z1_grid=np.zeros(7),   # shock grid  (pass from qe.tauchen)
                  P_z1=np.zeros((7, 7))): # transition matrix (pass from qe.tauchen)
         
@@ -372,17 +372,17 @@ def vfi(mod, tol=1e-5, max_iter=10_000, print_step=25):
 if __name__ == '__main__':
 
     # --- Tauchen discretisation of z1 (done outside jitclass via quantecon)
-    # ρ_z1, σ_z1, nz = 0.90, 0.01, 7
-    # mc = qe.markov.approximation.tauchen(nz, ρ_z1, σ_z1)
-    # z1_grid = np.exp(mc.state_values.astype(np.float64))
-    # P_z1    = np.asarray(mc.P, dtype=np.float64)
+    ρ_z1, σ_z1, nz = 0.90, 0.01, 2
+    mc = qe.markov.approximation.tauchen(nz, ρ_z1, σ_z1)
+    z1_grid = np.exp(mc.state_values.astype(np.float64))
+    P_z1    = np.asarray(mc.P, dtype=np.float64)
 
-    # --- Single z=1 (SS level), single k2 (SS), large k1 grid
-    z1_grid = np.array([1.0])
-    P_z1    = np.array([[1.0]])
+    # # --- Single z=1 (SS level), single k2 (SS), large k1 grid
+    # z1_grid = np.array([1.0])
+    # P_z1    = np.array([[1.0]])
 
     # --- Instantiate model
-    mod = TwoSector(nk1=100, nk2=10, z1_grid=z1_grid, P_z1=P_z1)
+    mod = TwoSector(nk1=30, nk2=30, z1_grid=z1_grid, P_z1=P_z1)
 
     print('Grid sizes:')
     print(f'  k1: {len(mod.k1_grid)} points in '
